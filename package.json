@@ -1,0 +1,7 @@
+{
+  "name": "mergent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CGI impossible cube with six procedural chambers"
+}
