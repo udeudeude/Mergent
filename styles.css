@@ -6,7 +6,7 @@ button,input{font:inherit}button{cursor:pointer;color:inherit}button:disabled{cu
 #stage,#arView{position:fixed;inset:0;overflow:hidden}
 #stage{background:radial-gradient(ellipse at 50% 40%,#203046,#080d15 75%)}
 #arView{z-index:1;display:none;isolation:isolate}
-#arView video{position:absolute!important;z-index:0!important;object-fit:cover;width:100%!important;height:100%!important;left:0!important;top:0!important}
+#arView video{z-index:0!important} /* MindAR sets crop/position to align camera and 3D overlay */
 #arView canvas{position:absolute!important;z-index:2!important}
 body.camera-active #arView{display:block}
 .grain{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.08;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E")}
