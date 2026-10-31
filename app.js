@@ -5,6 +5,7 @@ const symbols=['☉','☁','♧','◷','◇','⌁'];
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 let tracker=null,active=false,starting=false,setupBusy=false,face=-1;
+let autoTask=null,targetReady=false,autoError=null;
 let breached=false,playing=false,audio=null,pictureBlob=null,toaster=0,timeOffset=0,shockAt=0;
 let weird=.53;
 try{
@@ -130,6 +131,44 @@ async function getTracker(){
  });
  return tracker;
 }
+
+// Load and compile the six official cube faces without any setup click.
+// Camera access itself still requires the browser's permission prompt.
+async function ensureTargets(force=false){
+ if(autoTask&&!force)return autoTask;
+ if(force)autoTask=null;
+ const work=(async()=>{
+  const t=await getTracker();
+  if(!force&&await t.hasTargets()){
+   targetReady=true;autoError=null;
+   $('startCamera').textContent='▣ START CUBE CAMERA';
+   if(!active)status('CUBE TRACKING READY');
+   return true;
+  }
+  targetReady=false;status('LEARNING THE SIX FACES · 0%');
+  $('startCamera').textContent='PREPARING CUBE TRACKER…';
+  await t.prepareFromPDF(null,(percent,message)=>{
+   const n=Math.round(percent);
+   $('setupProgress').value=n;
+   $('setupStatus').textContent=message;
+   if(!active){status('LEARNING THE SIX FACES · '+n+'%');$('startCamera').textContent='PREPARING TRACKER · '+n+'%'}
+  });
+  targetReady=true;autoError=null;
+  $('startCamera').textContent='▣ START CUBE CAMERA';
+  if(!active)status('CUBE TRACKING READY');
+  return true;
+ })();
+ autoTask=work.catch(e=>{
+  autoError=e;targetReady=false;
+  $('startCamera').textContent='▣ START CUBE CAMERA';
+  status('AUTOMATIC SETUP UNAVAILABLE');
+  $('setupStatus').textContent='Automatic setup failed: '+(e?.message||e)+'. Use IMPORT DOWNLOADED PDF if required.';
+  console.warn('Automatic MERGE Cube tracking preparation failed',e);
+  return false;
+ });
+ return autoTask;
+}
+
 function cameraUI(on){
  document.body.classList.toggle('camera-active',on);
  $('launchPanel').hidden=on;
@@ -142,18 +181,16 @@ async function beginCamera(){
  $('startCamera').disabled=true;
  $('startCamera').textContent='PREPARING CAMERA…';
  try{
+  const ready=await ensureTargets();
+  if(!ready){$('setupDialog').showModal();return}
   const t=await getTracker();
-  if(!(await t.hasTargets())){
-   $('setupDialog').showModal();
-   $('setupStatus').textContent='A one-time six-face calibration is required. No photographs needed.';
-   return;
-  }
   face=-1;updateUI();active=true;cameraUI(true);status('REQUESTING CAMERA PERMISSION');
   await t.start();
   if($('setupDialog').open)$('setupDialog').close();
  }catch(e){
   console.error('Camera start failed',e);
   active=false;face=-1;cameraUI(false);updateUI();
+void ensureTargets();
   status('CAMERA UNAVAILABLE');
   toast('Camera error: '+(e?.message||e));
  }finally{
@@ -183,6 +220,7 @@ async function setupFromPDF(file=null){
    $('setupProgress').value=pct;$('setupStatus').textContent=msg;
   });
   success=true;
+  targetReady=true;autoError=null;autoTask=Promise.resolve(true);
  }catch(e){
   console.error('Face calibration failed',e);
   $('setupStatus').textContent='Calibration error: '+(e?.message||e)+'. Try importing the PDF from Files instead.';
@@ -202,14 +240,15 @@ async function setupFromMind(file){
   $('setupStatus').textContent='Invalid targets: '+(e?.message||e);
   setupBusy=false;return;
  }
+ targetReady=true;autoError=null;autoTask=Promise.resolve(true);
  setupBusy=false;await beginCamera();
 }
 async function rebuild(){
  $('help').close();
  if(active)await endCamera();
- $('setupDialog').showModal();
- $('setupStatus').textContent='Choose the official PDF to replace your saved face patterns.';
- $('setupProgress').value=0;
+ toast('Rebuilding the six tracking faces automatically…');
+ const ok=await ensureTargets(true);
+ if(!ok)$('setupDialog').showModal();
 }
 $('startCamera').addEventListener('click',()=>void beginCamera());
 $('stopCamera').addEventListener('click',()=>void endCamera());
