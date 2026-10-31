@@ -3,13 +3,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#080e17">
-<meta name="description" content="An impossible CGI cube. Only the face you see is hollow. Six chambers, reality breaches, collectible postcards.">
+<meta name="description" content="The physical MERGE Cube becomes a hollow CGI cabinet in your phone camera, with six impossible chambers and collectible postcards.">
 <title>Mergent · The Impossible Cube</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230d1520'/%3E%3Cpath d='m50 8 36 22v42L50 92 14 72V30Zm0 0v43m36-21L50 51 14 30M50 51v41' stroke='%23f3b98c' fill='none' stroke-width='5'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="./styles.css?v=3">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.module.js"}}</script>
+<link rel="stylesheet" href="./styles.css?v=4">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.147.0/examples/jsm/"}}</script>
 </head><body>
-<div id="stage"><div id="view" aria-label="Interactive 3D impossible cube"></div><div class="grain"></div></div>
+<div id="stage"><div id="view" aria-label="Interactive virtual 3D cube"></div><div id="arView" aria-label="Rear camera tracking the physical MERGE Cube"></div><div class="grain"></div><div id="arReticle" aria-hidden="true"><div class="reticleBox"></div><span>POINT YOUR CAMERA AT A MERGE CUBE FACE</span></div></div>
 <div class="hud">
 <header class="top">
   <div class="logo"><div class="glyph">◇</div><div><div class="kicker">DEPARTMENT OF IMPOSSIBLE INTERIORS</div><h1>MERGENT<span>.</span></h1></div></div>
@@ -19,14 +19,15 @@
     <button id="about" class="tool" aria-label="About Mergent">?</button>
   </div>
 </header>
-<div class="atmosphere"><span>THE SIDE THAT SEES YOU IS EMPTY</span><div id="status" role="status">TURN THE CUBE</div></div>
+<div class="atmosphere"><span>THE SIDE THAT SEES YOU IS EMPTY</span><div id="status" role="status">CGI PREVIEW · CAMERA AVAILABLE</div></div>
 <main class="bottom">
   <section class="specimen" aria-live="polite">
     <div class="eyebrow" id="caseNumber">CHAMBER 01 / 06 · OPEN</div>
     <h2 id="specimenName">The Pocket <i>Orrery</i></h2>
     <p id="specimenDescription">A solar system small enough to misplace. Its planets are reliably in the wrong places.</p>
     <div class="actions">
-      <button id="postcard" class="button primary">▧ COLLECT POSTCARD</button>
+      <button id="scanCube" class="button primary" aria-pressed="false">▣ SCAN MERGE CUBE</button>
+      <button id="postcard" class="button">▧ COLLECT POSTCARD</button>
       <button id="disturb" class="button">✳ DISTURB</button>
       <button id="breach" class="button" aria-pressed="false">↯ BREACH</button>
     </div>
@@ -36,18 +37,26 @@
     <div class="faces" id="faces"></div>
     <div class="face-caption" id="faceCaption">01 / An astronomical instrument with unreliable physics.</div>
     <div class="slider-line"><label for="improbability">IMPROBABILITY</label><input type="range" id="improbability" min="0" max="100" value="53"><output id="improbabilityValue" for="improbability">53%</output></div>
-    <div class="hint">DRAG THE CUBE OR TAP A CHAMBER · TAP THE OBJECT TO DISTURB</div>
+    <div class="hint">CAMERA: TURN YOUR PHYSICAL MERGE CUBE · PREVIEW: DRAG THE CGI CUBE</div>
   </section>
 </main>
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
-<div class="footer-mark">MERGENT / VOL. 01 · NO PHYSICAL CUBE</div>
+<div class="footer-mark">MERGENT / VOL. 02 · CAMERA + PREVIEW</div>
 <dialog id="help"><div class="modal-head"><div><div class="eyebrow">NOTES ON A DISOBEDIENT GEOMETRY</div><h2>Only the face you see can be empty.</h2></div><button class="close" data-close="help" aria-label="Close">×</button></div>
-<p>Rotate the CGI cube with a finger or mouse. Whichever face is most directly toward you becomes a hollow window into one of six impossible rooms. The other five remain solid.</p>
+<p><strong>Scan MERGE Cube</strong> opens your rear camera and recognizes the markings on a physical MERGE Cube. The cube is visually replaced by CGI: only the face toward you looks hollow, revealing an impossible room. Turn the real cube to change what appears inside.</p><p><strong>Virtual Preview</strong> works without the physical cube. Drag the CGI cube with a finger or mouse; the outward-facing side becomes the open room.</p>
 <p>Tap a room symbol to rotate directly to it. <strong>Disturb</strong> agitates the inhabitant. <strong>Breach</strong> pulls a neighboring chamber's inhabitant into the opening, making a temporary hybrid. The <strong>Improbability</strong> slider changes how the exhibits behave.</p>
-<p><strong>Collect Postcard</strong> captures the scene as a downloadable PNG. Sounds are synthesized locally. No camera, account, upload, or special physical cube is needed.</p>
+<p><strong>Collect Postcard</strong> captures the current encounter as a PNG. Sounds are synthesized locally. No account or upload is needed. For camera tracking, the six face markers are compiled once from MERGE’s official downloadable PDF and saved on this device.</p>
 <button class="button primary close-btn" data-close="help">RETURN TO MERGENT</button></dialog>
 <dialog id="postcardDialog"><div class="modal-head"><div><div class="eyebrow">FIELD EVIDENCE / PRIVATE ARCHIVE</div><h2>Something you can keep.</h2></div><button class="close" data-close="postcardDialog" aria-label="Close">×</button></div>
 <p>One improbable encounter, fixed to paper. Save or share it.</p><img id="postcardPreview" alt="Your collected Mergent field postcard"><div class="actions"><a class="button primary" id="saveImage" download="mergent-postcard.png">SAVE PNG</a><button id="shareImage" class="button">SHARE</button></div></dialog>
-<script type="module" src="./app.js?v=3"></script>
+<dialog id="setupDialog" aria-label="Set up physical MERGE Cube tracking">
+<div class="modal-head"><div><div class="eyebrow">ONE-TIME / PHYSICAL CUBE TRACKING</div><h2>Give the camera six eyes.</h2></div><button class="close" data-close="setupDialog" aria-label="Close">×</button></div>
+<p>The CGI cube needs to recognize the real cube’s six patterns. Instead of photographing them, Mergent can read <a href="https://res.cloudinary.com/apsphysics/image/upload/merge-paper-cube_mizj2k.pdf" target="_blank" rel="noopener noreferrer">MERGE's official printable PDF</a> and learn all six directly on your iPhone. Your PDF is not uploaded.</p>
+<div class="setup-buttons"><button id="setupPdf" class="button primary">USE OFFICIAL MERGE PDF</button><button id="setupFile" class="button">IMPORT PDF FROM FILES</button><button id="setupMind" class="button">IMPORT .MIND TARGETS</button></div>
+<input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden><input id="mindFile" type="file" accept=".mind,application/octet-stream" hidden>
+<progress id="setupProgress" max="100" value="0"></progress><p class="setup-status" id="setupStatus" role="status" aria-live="polite">First-time setup may require some processing. Leave this panel open while the six faces are learned.</p>
+<p class="fineprint">If the PDF cannot be fetched directly, save the PDF using the link above and choose Import PDF from Files. You only need to do this once per browser. This is experimental face-by-face image tracking, not MERGE's proprietary full-cube tracker.</p>
+</dialog>
+<script type="module" src="./app.js?v=4"></script>
 </body></html>
