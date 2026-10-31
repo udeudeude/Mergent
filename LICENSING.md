@@ -1,7 +1,7 @@
 # Licensing scope
 
-Original application code and functional interface components in Mergent are licensed under the **GNU Affero General Public License version 3 or any later version** (AGPL-3.0-or-later). The version 3 terms are in [LICENSE](LICENSE).
+**Original application software and functional interface components** are licensed under the GNU Affero General Public License, version 3 or (at your option) any later version (AGPL-3.0-or-later). See [LICENSE](LICENSE).
 
-**Original independent creative works**, including the virtual specimens, original illustrations, narratives, and collected postcard compositions, remain **all rights reserved** unless separately marked. The unmodified application may be run and shared with its bundled assets for their intended use; this notice does not license independent adaptation or reuse of those creative works.
+**Original independent creative assets**, including virtual specimens, illustrations, narratives, and generated postcard compositions, are otherwise **all rights reserved**. The copyright holder additionally grants permission to reproduce, redistribute, and modify these original assets **only when bundled with or incorporated into a working version or adaptation of the Mergent application**, including its normal postcard-generation functionality. This limited permission does not authorize extraction for independent publications, merchandise, unrelated applications, or other standalone reuse. It is not an AGPL license for the assets themselves.
 
-Third-party fonts, libraries, images, and other components remain under their own licenses. Earlier MIT-licensed versions remain available under the MIT terms previously granted; this change does not revoke them.
+This exception applies only to assets whose rights the project owner controls. Third-party fonts, libraries, images, and other components retain their respective licenses. Earlier MIT-licensed versions of the software remain subject to the MIT permissions already granted; existing licenses for any previously released assets are not revoked.
