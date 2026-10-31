@@ -1,45 +1,44 @@
 # Mergent
 
-**An impossible cabinet in your hand.** Point your phone's rear camera at a physical MERGE Cube. Mergent detects its six patterns and places a hollow CGI cube over it, with a different animated curiosity inside whichever face is currently tracked.
+Mergent is an experimental **augmented-reality experience for the physical MERGE Cube**. It is not a standalone virtual cube simulator.
 
 **App:** https://udeudeude.github.io/Mergent/
 
-## Start on iPhone
+## Use the real cube
 
-1. Open the app in Safari.
-2. Tap **SCAN MERGE CUBE**. The first time, choose **USE OFFICIAL MERGE PDF**.
-3. The app downloads the [original MERGE paper cube PDF](https://res.cloudinary.com/apsphysics/image/upload/merge-paper-cube_mizj2k.pdf) from its publisher, extracts six face images **in the browser**, and compiles local image-target tracking data. This can be slow on mobile on the first run.
-4. When requested, allow rear-camera access. Aim at a well-lit face of your physical cube and rotate it.
-5. If automatic PDF loading fails (for example, cross-origin network restrictions), download the publisher's PDF and choose **IMPORT PDF FROM FILES** instead. You can also import a six-target MindAR `.mind` file.
+1. Open Mergent in Safari on your iPhone, with the physical MERGE Cube at hand.
+2. Tap **Start Cube Camera**. Grant rear-camera permission.
+3. On first use, select **Use Official MERGE PDF** to attempt to generate six local image-tracking targets. If the remote PDF cannot be loaded, download it using the provided link and select **Import Downloaded PDF**. A six-face MindAR `.mind` file can also be imported.
+4. Point the camera toward a marked face of your MERGE Cube. Keep it in good light and in focus.
+5. When a face is recognized, the cube is overlaid with CGI and the camera-facing side becomes a hollow window into an animated impossible interior. Rotate the **physical** cube to visit a different interior.
 
-Your camera images and PDF are not uploaded to our servers. A compact target database is stored in IndexedDB on the device. Once prepared, tap **SCAN MERGE CUBE** on subsequent visits to enter camera mode directly.
+The six face symbols are *status indicators*, not controls. Mergent contains no independent rotate-by-touch preview or simulated cube mode.
 
-## What to expect
+### Controls
 
-- **Physical cube mode:** The camera recognizes a face and anchors a CGI replacement cube to that real face. Only the detected outward face is rendered as a hollow opening. Rotate the real cube to show different chambers.
-- **Virtual preview:** The app still works without a physical cube. Drag the CGI cube to rotate it; only the most camera-facing side is hollow.
-- **Disturb:** Agitate the creature/device in the current chamber.
-- **Breach:** Introduce a neighboring chamber's specimen into the opening.
-- **Improbability:** Change the animated behavior.
-- **Collect Postcard:** Save or share a graphic of the current view, including camera imagery when possible.
-- **Sound:** Optional audio synthesized locally.
+- **Disturb:** agitate the current chamber's contents.
+- **Breach:** introduce an intruder from another chamber.
+- **Improbability:** change the intensity of the animations.
+- **Postcard:** capture and save the phone-camera view with the CGI artwork.
+- **Sound:** optional locally synthesized audio.
 
-### Limitations
+Controls that require a tracked face are disabled when the physical cube cannot be seen.
 
-Tracking is **experimental, face-by-face MindAR image tracking**, not MERGE's proprietary full-cube tracking engine. Moving quickly, partially obscuring a face, glare, or using an older phone may cause it to lose the target temporarily. There can be visual pose jumps when switching between recognized faces. Camera access requires HTTPS. The CGI overlay may not perfectly mask the physical cube around its edges, especially at oblique angles. First-run target compilation is potentially demanding on older phones. If the remote PDF host doesn't support browser CORS, download and import the publisher's PDF locally.
+### Important technical limitations
 
-### Source
+This uses open-source **MindAR image tracking, one face at a time**, not MERGE's proprietary six-degree-of-freedom cube tracker. The superimposed CGI cube may not precisely obscure the physical cube, particularly at steep viewing angles. Face switches can jump and tracking can be lost due to glare, movement, or partial occlusion. Camera access requires HTTPS. Generating tracking data on a phone is CPU-intensive and has not yet been validated on the user's actual device.
 
-- `index.html`, `styles.css`: interface, camera setup dialog, and responsive styling
-- `app.js`: virtual preview, interaction, postcards, mode switching
-- `ar.js`: MindAR image tracking, local PDF target compilation, camera CGI overlay
-- `cube.js`: shared CGI cube faces, framing, and hollow chamber implementation
-- `worlds.js`: six procedural animated specimens
-- `archive/anomaly-six-merge-cube.html`: preserved first-generation prototype
-- `.github/workflows/pages.yml`: syntax checks and automatic GitHub Pages deployment
+The standard face shapes are extracted directly *on the user's device* from the publisher's PDF. No face artwork is shipped in this repository and no camera imagery is uploaded. MERGE's printable artwork carries its own restrictive terms; refer to the linked source document. The app is an unofficial experiment, not an official MERGE product.
 
-The app does **not** ship, rehost, or republish MERGE's copyrighted printed marker graphics. The separate, original CGI geometry and app code are MIT-licensed.
+### Source files
 
-## Deployment
+- `index.html`: camera-only user interface, setup, and dialog controls
+- `styles.css`: mobile AR overlay and interfaces
+- `app.js`: cube recognition state, interactions, camera lifecycle, postcards
+- `ar.js`: MindAR anchors, PDF target compilation, on-device tracking cache
+- `cube.js`: CGI replacement cube with opening only on the detected face
+- `worlds.js`: six procedural animated interiors
+- `archive/anomaly-six-merge-cube.html`: archived predecessor, preserved for development history
+- `.github/workflows/pages.yml`: GitHub Pages deployment and JS syntax validation
 
-In **Settings → Pages**, select **GitHub Actions** for Source. Changes to `main` trigger the Pages workflow.
+GitHub Pages is served from the `main` branch via the included Actions workflow when repository **Settings → Pages → Source** is set to **GitHub Actions**.
