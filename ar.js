@@ -9,7 +9,7 @@ const PDF_WORKER='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.work
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const Z=new THREE.Vector3(0,0,1);
 const DB='mergent-cube-tracker';
-const KEY='standard-six-faces-v1';
+const KEY='standard-six-faces-v2';
 
 function openDB(){
  return new Promise((resolve,reject)=>{
@@ -59,7 +59,11 @@ async function pageToTargets(file,onProgress){
   // Coordinates of the six printed, square faces on MERGE's 1088x1405
   // reference layout. Outer folds, labels, and assembly tabs are excluded.
   const W=1088,H=1405,S=273,pad=6;
-  const origins=[[408,75],[136,348],[408,348],[680,348],[408,621],[408,894]];
+  // Face target order follows the cube's rigid 3D orientation:
+  // front (center), right, back (bottommost), left, top, bottom.
+  // The original PDF is a net; keeping this order is essential for
+  // estimating one continuous cube pose from adjacent visible faces.
+  const origins=[[408,348],[680,348],[408,894],[136,348],[408,75],[408,621]];
   const targets=[];
   for(let i=0;i<origins.length;i++){
    const [x,y]=origins[i];
@@ -82,6 +86,22 @@ async function pageToTargets(file,onProgress){
 export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach=()=>false,getWeird=()=>.5,getTime=()=>0,getShock=()=>0}){
  let compiled=null,engine=null,objectURL=null,activeFace=-1,rooms=null,wrapper=null,running=false;
  const status=msg=>onStatus(msg);
+ // The six target images occupy the faces of a single connected cube net.
+ // These rotations map the upright, square PDF image axes into a common
+ // cube coordinate frame, rather than independently facing each target.
+ const X=new THREE.Vector3(1,0,0),Y=new THREE.Vector3(0,1,0);
+ const faceRotations=[
+  new THREE.Quaternion(),
+  new THREE.Quaternion().setFromAxisAngle(Y,Math.PI/2),
+  new THREE.Quaternion().setFromAxisAngle(X,Math.PI),
+  new THREE.Quaternion().setFromAxisAngle(Y,-Math.PI/2),
+  new THREE.Quaternion().setFromAxisAngle(X,-Math.PI/2),
+  new THREE.Quaternion().setFromAxisAngle(X,Math.PI/2)
+ ];
+ const faceToCubeInverse=faceRotations.map((rotation,i)=>{
+  const pose=new THREE.Matrix4().compose(FACE_NORMALS[i].clone().multiplyScalar(.5),rotation,new THREE.Vector3(1,1,1));
+  return pose.invert();
+ });
  async function hasTargets(){
   if(compiled)return true;
   compiled=await getLocal();
@@ -108,71 +128,144 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   if(!data||data.length!==6)throw new Error('This file must contain all six face targets');
   compiled=buffer;await putLocal(buffer);
  }
+ let poseRoot=null,anchors=[],currentIndex=-1,poseInitialized=false;
+ let lastDetection=0,lastStatus='';
+ const tempPos=new THREE.Vector3(),tempQuat=new THREE.Quaternion(),tempScale=new THREE.Vector3();
+ const trackedPos=new THREE.Vector3(),trackedQuat=new THREE.Quaternion(),trackedScale=new THREE.Vector3(1,1,1);
+ const cameraForward=new THREE.Vector3(0,0,1);
+ function announce(message){if(message!==lastStatus){lastStatus=message;status(message)}}
  function prepareCube(){
   const cube=new THREE.Group();
   rooms=FACE_NORMALS.map((_,i)=>{
-    const room=chamber(i);
-    room.open.visible=false;
-    room.closed.visible=true;
-    cube.add(room.group);
-    return room;
+   const r=chamber(i);r.open.visible=false;r.closed.visible=true;
+   cube.add(r.group);return r;
   });
   const edges=new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(1.66,1.66,1.66)),
-    new THREE.LineBasicMaterial({color:0xa8c0c9,transparent:true,opacity:.84}));
+   new THREE.EdgesGeometry(new THREE.BoxGeometry(1.66,1.66,1.66)),
+   new THREE.LineBasicMaterial({color:0xa8c0c9,transparent:true,opacity:.84}));
   cube.add(edges);
   wrapper=new THREE.Group();
   wrapper.scale.setScalar(1/1.58);
-  // In MindAR, the detected planar face sits at z=0 in target units.
-  // Move the CGI cube behind this plane so the virtual opening replaces
-  // the printed face instead of floating in front of the physical cube.
-  wrapper.position.z=-.5;
   wrapper.add(cube);
+  poseRoot=new THREE.Group();
+  poseRoot.matrixAutoUpdate=false;
+  poseRoot.visible=false;
+  poseRoot.add(wrapper);
   return cube;
  }
- function exposeFace(index,cube){
-  cube.quaternion.setFromUnitVectors(FACE_NORMALS[index],Z);
-  rooms.forEach((r,i)=>{r.open.visible=i===index;r.closed.visible=i!==index});
+ function frontFace(){
+  // The face physically pointing toward the camera is the aperture.
+  // Unlike switching image targets, its identity is derived from the
+  // smoothed pose of the *whole* cube.
+  let best=-1,bestScore=-Infinity;
+  for(let i=0;i<6;i++){
+   const outward=FACE_NORMALS[i].clone().applyQuaternion(trackedQuat);
+   const score=outward.dot(cameraForward);
+   if(score>bestScore){bestScore=score;best=i}
+  }
+  if(currentIndex>=0){
+   const oldScore=FACE_NORMALS[currentIndex].clone().applyQuaternion(trackedQuat).dot(cameraForward);
+   if(oldScore>bestScore-.045)return currentIndex;
+  }
+  return best;
+ }
+ function updateTrackedPose(){
+  const candidates=[];
+  for(let i=0;i<anchors.length;i++){
+   const anchor=anchors[i];
+   if(!anchor.visible||!anchor.group.visible)continue;
+   const cubePose=anchor.group.matrix.clone().multiply(faceToCubeInverse[i]);
+   const p=new THREE.Vector3(),q=new THREE.Quaternion(),sc=new THREE.Vector3();
+   cubePose.decompose(p,q,sc);
+   // Positive-Z points from the object toward the rear camera.
+   const faceNormal=FACE_NORMALS[i].clone().applyQuaternion(q);
+   const facing=faceNormal.z;
+   if(!Number.isFinite(p.x)||!Number.isFinite(q.w)||facing<-.15)continue;
+   candidates.push({i,p,q,sc,facing});
+  }
+  if(!candidates.length){
+   if(poseInitialized&&performance.now()-lastDetection<360){
+    poseRoot.visible=true;
+    return;
+   }
+   poseRoot.visible=false;activeFace=-1;currentIndex=-1;
+   announce('CUBE LOST · SHOW A MARKED FACE');
+   return;
+  }
+  lastDetection=performance.now();
+  // Prefer the most frontal target, but accept adjacent faces too. The
+  // relative geometry of the cube keeps the pose in a common frame.
+  candidates.sort((a,b)=>b.facing-a.facing);
+  const primary=candidates[0];
+  tempPos.copy(primary.p);tempQuat.copy(primary.q);tempScale.copy(primary.sc);
+  for(let j=1;j<candidates.length;j++){
+   const other=candidates[j];
+   const deviation=other.p.distanceTo(primary.p);
+   const angular=other.q.angleTo(primary.q);
+   // Exclude outliers instead of letting a misread face flip the cube.
+   if(deviation>primary.sc.x*.24||angular>.42)continue;
+   const weight=Math.min(.4,Math.max(.13,other.facing/(primary.facing+other.facing+1e-5)));
+   tempPos.lerp(other.p,weight);tempQuat.slerp(other.q,weight);
+   tempScale.lerp(other.sc,weight);
+  }
+  if(!poseInitialized){
+   trackedPos.copy(tempPos);trackedQuat.copy(tempQuat);trackedScale.copy(tempScale);
+   poseInitialized=true;
+  }else{
+   // Smoothing avoids abrupt target-to-target jumps while preserving
+   // responsive hand movements. MindAR also filters target poses.
+   const proximity=trackedPos.distanceTo(tempPos)/Math.max(.01,tempScale.x);
+   const speed=proximity>.16?.44:.28;
+   trackedPos.lerp(tempPos,speed);
+   trackedQuat.slerp(tempQuat,speed);
+   trackedScale.lerp(tempScale,speed);
+  }
+  poseRoot.matrix.compose(trackedPos,trackedQuat,trackedScale);
+  poseRoot.matrixWorldNeedsUpdate=true;
+  poseRoot.visible=true;
+  const index=frontFace();
+  if(index!==currentIndex){
+   currentIndex=index;onFace(index);
+   rooms.forEach((r,i)=>{r.open.visible=i===index;r.closed.visible=i!==index});
+  }
+  activeFace=index;
+  announce('TRACKING CUBE · '+candidates.length+' FACE'+(candidates.length===1?'':'S')+' VISIBLE');
  }
  async function start(){
   if(running)return;
-  if(!await hasTargets())throw new Error('First prepare the six cube markers from the official PDF');
-  if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera permission requires Safari/Chrome over HTTPS');
+  if(!await hasTargets())throw new Error('Tracking data has not finished preparing');
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error('This browser needs HTTPS camera permission');
   objectURL=URL.createObjectURL(new Blob([compiled],{type:'application/octet-stream'}));
   const ar=new MindARThree({
    container,imageTargetSrc:objectURL,
    uiLoading:false,uiScanning:false,uiError:false,
-   maxTrack:1,filterMinCF:.001,filterBeta:700,
-   warmupTolerance:2,missTolerance:3
+   maxTrack:2,filterMinCF:.001,filterBeta:700,
+   warmupTolerance:2,missTolerance:4
   });
   engine=ar;
   try{
    const {renderer,scene,camera}=ar;
    renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
    scene.add(new THREE.HemisphereLight(0xe6f2ff,0x29394e,1.6));
-   const light=new THREE.DirectionalLight(0xffd2a5,2.7);
-   light.position.set(1,2,3);scene.add(light);
+   const key=new THREE.DirectionalLight(0xffd2a5,2.7);
+   key.position.set(1,2,3);scene.add(key);
    const fill=new THREE.DirectionalLight(0x9abafa,1.4);
    fill.position.set(-2,-1,1);scene.add(fill);
-   const cube=prepareCube();
+   prepareCube();scene.add(poseRoot);
+   anchors=[];
    for(let i=0;i<6;i++){
     const anchor=ar.addAnchor(i);
-    anchor.onTargetFound=()=>{
-     activeFace=i;
-     anchor.group.add(wrapper);
-     exposeFace(i,cube);
-     onFace(i);
-     status('TRACKING FACE '+(i+1)+' / 6');
-    };
-    anchor.onTargetLost=()=>{
-     if(activeFace===i){activeFace=-1;status('CUBE LOST · AIM AT A PRINTED FACE')}
-    };
+    anchors.push(anchor);
+    anchor.onTargetFound=()=>{lastDetection=performance.now()};
+    anchor.onTargetLost=()=>{};
    }
-   status('REQUESTING REAR CAMERA');
+   poseInitialized=false;currentIndex=-1;activeFace=-1;
+   announce('REQUESTING REAR CAMERA');
    await ar.start();
    running=true;
-   if(activeFace<0)status('LOOK FOR THE CUBE · TURN IT SLOWLY');
+   announce('LOOK FOR THE CUBE · TURN IT SLOWLY');
    renderer.setAnimationLoop(()=>{
+    updateTrackedPose();
     const i=activeFace;
     if(i>=0&&rooms){
      const t=getTime(),w=getWeird(),breach=getBreach();
@@ -191,8 +284,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   }catch(e){
    try{ar.stop()}catch{}
    try{ar.renderer.dispose()}catch{}
-   container.replaceChildren();
-   engine=null;
+   container.replaceChildren();engine=null;
    URL.revokeObjectURL(objectURL);objectURL=null;
    throw e;
   }
@@ -205,13 +297,12 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   try{ar.stop()}catch(e){console.warn('Camera stop',e)}
   try{ar.renderer.dispose()}catch{}
   try{ar.cssRenderer?.domElement?.remove()}catch{}
-  try{
-   rooms?.forEach(r=>r.group.traverse(obj=>{
-     obj.geometry?.dispose?.();
-     if(obj.material)(Array.isArray(obj.material)?obj.material:[obj.material]).forEach(m=>m.dispose?.());
-   }));
-  }catch{}
-  rooms=null;wrapper=null;
+  try{rooms?.forEach(r=>r.group.traverse(obj=>{
+   obj.geometry?.dispose?.();
+   if(obj.material)(Array.isArray(obj.material)?obj.material:[obj.material]).forEach(m=>m.dispose?.());
+  }))}catch{}
+  rooms=null;wrapper=null;poseRoot=null;anchors=[];
+  poseInitialized=false;currentIndex=-1;lastStatus='';
   container.replaceChildren();
   if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null}
   status('CAMERA CLOSED');
