@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import {descriptions,makeWorld} from './worlds.js';
+import {descriptions} from './worlds.js';
+import {FACE_NORMALS,chamber} from './cube.js';
 const $=id=>document.getElementById(id);
-const FACE_NORMALS=[new THREE.Vector3(0,0,1),new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,-1),new THREE.Vector3(-1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,-1,0)];
 const FACE_POSES=[[.18,-.30],[.18,-Math.PI/2+.12],[.18,Math.PI-.30],[.18,Math.PI/2-.12],[Math.PI/2-.12,0],[-Math.PI/2+.12,0]];
 const symbol=['☉','☁','♧','◷','◇','⌁'];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-let selected=0,breached=false,playing=false,audio=null,notificationTimer=0,lastTime=0,pictureBlob=null,preview=null;
+let selected=0,breached=false,playing=false,audio=null,notificationTimer=0,lastTime=0,pictureBlob=null,preview=null,arActive=false,tracker=null,arBusy=false;
 let weird=.53;
 try{weird=clamp(parseInt(localStorage.getItem('mergent-weird')||'53',10)/100,0,1)||.53}catch{}
 const motion={x:.18,y:-.30,tx:.18,ty:-.30,t:0,shock:0};
@@ -43,55 +43,11 @@ function updateUI(){
  [...$('faces').children].forEach((el,i)=>{el.classList.toggle('active',selected===i);el.setAttribute('aria-pressed',String(selected===i))});
 }
 function rotateToFace(index){
+ if(arActive){notify('Turn the physical MERGE Cube to change chambers.');return}
  const pose=FACE_POSES[index];motion.tx=pose[0];motion.ty=pose[1];
  while(motion.ty-motion.y>Math.PI)motion.ty-=2*Math.PI;
  while(motion.ty-motion.y< -Math.PI)motion.ty+=2*Math.PI;
  ping(index,.06);
-}
-function material(c,options={}){return new THREE.MeshStandardMaterial({color:c,metalness:.8,roughness:.27,...options})}
-function box(w,h,d,mat,x=0,y=0,z=0){
- const obj=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
- obj.position.set(x,y,z);return obj
-}
-function chamber(index){
- const side=1.58,half=side/2,border=.115;
- const normal=FACE_NORMALS[index],c=new THREE.Group();
- c.position.copy(normal).multiplyScalar(half);
- c.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
- const closed=new THREE.Group(),open=new THREE.Group();
- const metal=material(['#304353','#364153','#404056','#40374a','#424f43','#32495a'][index],{side:THREE.DoubleSide});
- const brass=material('#a8b8bd',{metalness:.93,roughness:.22,side:THREE.DoubleSide});
- closed.add(box(side,side,.045,metal,0,0,-.025));
- const sigil=new THREE.Mesh(new THREE.TorusGeometry(.45,.012,6,4),new THREE.MeshBasicMaterial({color:descriptions[index].accent,transparent:true,opacity:.46}));
- sigil.rotation.z=Math.PI/4;sigil.position.z=.017;closed.add(sigil);
- const centerSigil=new THREE.Mesh(new THREE.TorusGeometry(.085,.01,4,6),new THREE.MeshBasicMaterial({color:descriptions[index].accent}));
- centerSigil.position.z=.026;closed.add(centerSigil);
- for(const x of [-.64,.64])for(const y of [-.64,.64]){
-  const stud=new THREE.Mesh(new THREE.SphereGeometry(.021,8,6),brass);stud.position.set(x,y,.025);closed.add(stud);
- }
- for(const y of [-half+border/2,half-border/2])open.add(box(side,border,.12,metal,0,y,0));
- for(const x of [-half+border/2,half-border/2])open.add(box(border,side-2*border,.12,metal,x,0,0));
- for(const x of [-half+border/2,half-border/2])for(const y of [-half+border/2,half-border/2])
-  open.add(box(.12,.12,.14,brass,x,y,.045));
- const aperture=side-2*border;
- open.add(new THREE.Mesh(
-  new THREE.PlaneGeometry(aperture,aperture),
-  new THREE.MeshBasicMaterial({color:0x070e1a,side:THREE.DoubleSide,depthWrite:true})
- ));
- open.children[open.children.length-1].position.z=-1.38;
- const wall=material('#152435',{metalness:.15,roughness:.9,side:THREE.DoubleSide});
- for(const x of [-aperture/2,aperture/2])open.add(box(.025,aperture,.75,wall,x,0,-.43));
- for(const y of [-aperture/2,aperture/2])open.add(box(aperture,.025,.75,wall,0,y,-.43));
- const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.008,5,84),new THREE.MeshBasicMaterial({color:descriptions[index].accent,transparent:true,opacity:.26}));
- ring.position.z=-.72;open.add(ring);
- const holder=new THREE.Group();holder.scale.setScalar(1.17);holder.position.z=-.67;
- const specimen=makeWorld(index);holder.add(specimen);open.add(holder);
- const echoHolder=new THREE.Group();echoHolder.scale.setScalar(.62);echoHolder.position.set(.25,-.13,-.87);
- const echo=makeWorld((index+1)%6);echoHolder.add(echo);open.add(echoHolder);echoHolder.visible=false;
- const recursing=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.4,.4,.4)),new THREE.LineBasicMaterial({color:descriptions[(index+1)%6].accent,transparent:true,opacity:.65}));
- recursing.position.set(-.22,.17,-1.05);recursing.visible=false;open.add(recursing);
- c.add(closed,open);
- return{group:c,open,closed,specimen,echo,echoHolder,recursing,ring};
 }
 function initialize(){
  const area=$('view'),renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});
@@ -132,6 +88,7 @@ function initialize(){
  const eye=new THREE.Vector3();
  renderer.setAnimationLoop(()=>{
   const now=performance.now()/1000,dt=lastTime?Math.min(.05,now-lastTime):.016;lastTime=now;
+  if(arActive)return;
   motion.t+=dt;motion.shock*=.93;
   motion.x+=(motion.tx-motion.x)*.1;motion.y+=(motion.ty-motion.y)*.1;
   stand.rotation.set(motion.x,motion.y,0,'XYZ');
@@ -184,7 +141,7 @@ function breach(){
 }
 function collect(){
  if(!preview){notify('Unable to capture the current scene.');return}
- const image=preview.renderer.domElement;
+ const image=arActive?(tracker?.snapshot()||preview.renderer.domElement):preview.renderer.domElement;
  const card=document.createElement('canvas');card.width=1000;card.height=1270;
  const ctx=card.getContext('2d'),gradient=ctx.createLinearGradient(0,0,0,1270);
  gradient.addColorStop(0,'#1a2a3e');gradient.addColorStop(1,'#070c15');
@@ -216,6 +173,92 @@ async function share(){
   else $('saveImage').click();
  }catch(e){if(e.name!=='AbortError')notify('Sharing unavailable. Use Save PNG.')}
 }
+
+async function getTracker(){
+ if(tracker)return tracker;
+ const mod=await import('./ar.js?v=4');
+ tracker=mod.createTracker({
+  container:$('arView'),
+  onStatus:msg=>{if(arActive)$('status').textContent=msg;else $('setupStatus').textContent=msg},
+  onFace:i=>{selected=i;updateUI();$('status').textContent='TRACKING PHYSICAL FACE '+(i+1);ping(i,.04)},
+  getBreach:()=>breached,
+  getWeird:()=>weird,
+  getTime:()=>motion.t
+ });
+ return tracker;
+}
+async function toggleAR(){
+ if(arBusy)return;
+ if(arActive){await stopTracking();return}
+ await enterAR();
+}
+async function enterAR(){
+ if(arBusy)return;
+ arBusy=true;
+ $('scanCube').textContent='⌛ OPENING CAMERA';
+ try{
+  const t=await getTracker();
+  const ready=await t.hasTargets();
+  if(!ready){$('setupDialog').showModal();$('setupStatus').textContent='Your standard MERGE Cube needs only one PDF-based setup. No photos of the physical cube.';return}
+  arActive=true;
+  document.body.classList.add('tracking-mode');
+  $('scanCube').textContent='◎ RETURN TO PREVIEW';
+  $('scanCube').setAttribute('aria-pressed','true');
+  $('status').textContent='STARTING REAR CAMERA';
+  await t.start();
+  $('setupDialog').close();
+ }catch(e){
+  console.error('Physical cube camera failed',e);
+  notify('Camera setup failed: '+(e?.message||e));
+  arActive=false;
+  document.body.classList.remove('tracking-mode');
+ }finally{
+  arBusy=false;
+  if(!arActive){$('scanCube').textContent='▣ SCAN MERGE CUBE';$('scanCube').setAttribute('aria-pressed','false')}
+ }
+}
+async function stopTracking(){
+ if(arBusy)return;
+ arBusy=true;
+ try{await tracker?.stop()}catch(e){console.warn(e)}
+ arActive=false;
+ document.body.classList.remove('tracking-mode');
+ $('scanCube').textContent='▣ SCAN MERGE CUBE';
+ $('scanCube').setAttribute('aria-pressed','false');
+ $('status').textContent='CGI PREVIEW';
+ arBusy=false;
+}
+async function prepareStandard(file){
+ if(arBusy)return;
+ arBusy=true;
+ $('setupPdf').disabled=true;
+ $('setupFile').disabled=true;
+ $('setupMind').disabled=true;
+ $('setupProgress').value=0;
+ $('setupStatus').textContent='Loading official MERGE Cube PDF…';
+ try{
+  const t=await getTracker();
+  await t.prepareFromPDF(file,(pct,msg)=>{$('setupProgress').value=pct;$('setupStatus').textContent=msg});
+  $('setupStatus').textContent='All six faces prepared. Opening rear camera…';
+  arBusy=false;
+  await enterAR();
+ }catch(e){
+  console.error('PDF tracking preparation failed',e);
+  $('setupStatus').textContent='Could not prepare tracking data: '+(e?.message||e)+'. Try downloading the PDF and using IMPORT PDF FROM FILES.';
+ }finally{arBusy=false;$('setupPdf').disabled=false;$('setupFile').disabled=false;$('setupMind').disabled=false}
+}
+async function loadMindFile(file){
+ if(arBusy)return;
+ arBusy=true;
+ try{
+  const t=await getTracker();
+  await t.importMind(await file.arrayBuffer());
+  arBusy=false;
+  await enterAR();
+ }catch(e){$('setupStatus').textContent='Could not import tracking file: '+(e?.message||e)}
+ finally{arBusy=false}
+}
+
 for(let i=0;i<6;i++){
  const b=document.createElement('button');b.className='face';b.textContent=symbol[i];
  b.title='Chamber '+(i+1)+': '+descriptions[i].first+' '+descriptions[i].second;
@@ -228,6 +271,12 @@ $('improbability').addEventListener('input',e=>{
  try{localStorage.setItem('mergent-weird',String(e.target.value))}catch{}
 });
 $('recenter').addEventListener('click',()=>rotateToFace(0));
+$('scanCube').addEventListener('click',toggleAR);
+$('setupPdf').addEventListener('click',()=>prepareStandard(null));
+$('setupFile').addEventListener('click',()=>$('pdfFile').click());
+$('pdfFile').addEventListener('change',e=>{if(e.target.files?.[0])void prepareStandard(e.target.files[0]);e.target.value=''});
+$('setupMind').addEventListener('click',()=>$('mindFile').click());
+$('mindFile').addEventListener('change',e=>{if(e.target.files?.[0])void loadMindFile(e.target.files[0]);e.target.value=''});
 $('disturb').addEventListener('click',disturb);
 $('breach').addEventListener('click',breach);
 $('postcard').addEventListener('click',collect);
