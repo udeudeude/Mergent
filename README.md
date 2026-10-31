@@ -10,7 +10,7 @@ Mergent is an experimental **augmented-reality experience for the physical MERGE
 2. Mergent automatically prepares and locally caches its six standard face targets on first load, using the publisher's PDF. You don't need to select, import, or photograph anything when automatic retrieval works.
 3. Tap **Start Cube Camera**, then allow normal iOS rear-camera permission when asked. If automatic PDF retrieval is blocked, the app displays a recovery panel with a downloadable-PDF import option.
 4. Point the rear camera at a marked face of the physical cube. Use steady, diffuse light.
-5. Mergent estimates one rigid cube pose from up to two simultaneously visible face markers. The forward-facing side of that CGI cube appears hollow. Rotate the physical cube to visit its different interiors.
+5. Mergent estimates one rigid cube pose from the currently tracked face marker and the six faces' known orientations. The forward-facing side of that CGI cube appears hollow. Rotate the physical cube to visit its different interiors.
 
 The six face symbols are *status indicators*, not controls. Mergent contains no independent rotate-by-touch preview or simulated cube mode.
 
@@ -24,9 +24,22 @@ The six face symbols are *status indicators*, not controls. Mergent contains no 
 
 Controls that require a tracked face are disabled when the physical cube cannot be seen.
 
+## Responsiveness and performance
+
+The default tracker prioritizes low latency:
+
+- It tracks **one image target at a time**. This reduces mobile processing work, though transitions between cube faces may be less continuous.
+- An additional pose filter runs **only on new tracking measurements**, with high responsiveness to hand movement.
+- MindAR’s One Euro filter and face acquisition thresholds have been tuned for faster response.
+- The CGI renderer caps device pixel ratio at **1.4** to lower GPU fill-rate.
+
+For an optional performance readout open **https://udeudeude.github.io/Mergent/?stats=1**. The status shows target pose events per second and rendered CGI frames per second. Neither number is a measurement of end-to-end camera-to-display latency.
+
+This is a first tuning pass, not a verified native-equivalent motion-to-photon latency result.
+
 ### Important technical limitations
 
-This uses open-source **MindAR image tracking of up to two faces simultaneously** and their known geometric relationships to estimate and smooth one rigid cube pose, an approach analogous to Vuforia's Multi Target technique. It does **not** use MERGE's native Vuforia/Unity engine or provide identical tracking quality. The superimposed CGI cube may not precisely obscure the physical cube, particularly at steep viewing angles. Face switches can jump and tracking can be lost due to glare, movement, or partial occlusion. Camera access requires HTTPS. The app automatically compiles reference targets on first use and saves them to IndexedDB. Initial compilation is CPU-intensive and has not yet been validated on the user's actual device.
+This uses open-source **MindAR image tracking of a single active face** to estimate the rigid cube's pose. This prioritizes tracking update speed over simultaneous-face continuity. It does **not** use MERGE's native Vuforia/Unity engine or provide identical tracking quality. The superimposed CGI cube may not precisely obscure the physical cube, particularly at steep viewing angles. Face switches can jump and tracking can be lost due to glare, movement, or partial occlusion. Camera access requires HTTPS. The app automatically compiles reference targets on first use and saves them to IndexedDB. Initial compilation is CPU-intensive and has not yet been validated on the user's actual device.
 
 The standard face shapes are extracted directly *on the user's device* from the publisher's PDF. No face artwork is shipped in this repository and no camera imagery is uploaded. MERGE's printable artwork carries its own restrictive terms; refer to the linked source document. The app is an unofficial experiment, not an official MERGE product.
 
