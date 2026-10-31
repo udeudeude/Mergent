@@ -31,11 +31,13 @@ The default tracker prioritizes low latency:
 - It tracks **one image target at a time**. This reduces mobile processing work, though transitions between cube faces may be less continuous.
 - An additional pose filter runs **only on new tracking measurements**, with high responsiveness to hand movement.
 - MindAR’s One Euro filter and face acquisition thresholds have been tuned for faster response.
-- The CGI renderer caps device pixel ratio at **1.4** to lower GPU fill-rate.
+- The camera requests **640×480** input rather than leaving full resolution to the browser, and the CGI renderer uses device pixel ratio **1.0** to reduce GPU work. Mergent also disables unnecessary live-video backdrop blur and grain.
 
-For an optional performance readout open **https://udeudeude.github.io/Mergent/?stats=1**. The status shows target pose events per second and rendered CGI frames per second. Neither number is a measurement of end-to-end camera-to-display latency.
+For an optional performance readout open **https://udeudeude.github.io/Mergent/?stats=1**. The status shows target pose events per second, rendered CGI frames per second, and the actual camera capture resolution. Neither number is a measurement of end-to-end camera-to-display latency.
 
-This is a first tuning pass, not a verified native-equivalent motion-to-photon latency result.
+To compare capture resolution on the same phone, use **https://udeudeude.github.io/Mergent/?stats=1&camera=hd**. It requests 1280×720; the default requests 640×480. Both are *ideal* constraints, so the device may negotiate a different size.
+
+An October 30 iPhone screen recording showed roughly **10–21 target updates/s** and **17–25 rendered FPS**, with multiple multi-second tracking-loss intervals. The low battery visible in that recording (approximately 3–4%) may have affected performance. These changes target the bottleneck but have not yet been retested on the phone.
 
 ### Important technical limitations
 
