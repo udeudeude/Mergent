@@ -22,6 +22,8 @@ jobs:
         run: |
           node --check app.js
           node --check worlds.js
+          node --check cube.js
+          node --check ar.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
