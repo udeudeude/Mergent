@@ -8,8 +8,8 @@ let tracker=null,active=false,starting=false,setupBusy=false,face=-1;
 let breached=false,playing=false,audio=null,pictureBlob=null,toaster=0,timeOffset=0,shockAt=0;
 let weird=.53;
 try{
- const n=Number(localStorage.getItem('mergent-weird'));
- if(Number.isFinite(n))weird=clamp(n/100,0,1);
+ const saved=localStorage.getItem('mergent-weird');
+ if(saved!==null){const n=Number(saved);if(Number.isFinite(n))weird=clamp(n/100,0,1)}
 }catch{}
 
 for(let i=0;i<6;i++){
