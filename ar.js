@@ -131,11 +131,18 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
  let poseRoot=null,anchors=[],currentIndex=-1,poseInitialized=false;
  let lastDetection=0,lastStatus='';
  let measurementVersion=0,lastProcessedVersion=-1;
- let newestMeasurementAt=0,previousMeasurementAt=0;
+ const diagnostics=new URLSearchParams(location.search).has('stats');
+ let displayFrames=0,sampleUpdates=0,meterStart=performance.now();
+ let displayFPS=0,targetHz=0;
  const tempPos=new THREE.Vector3(),tempQuat=new THREE.Quaternion(),tempScale=new THREE.Vector3();
  const trackedPos=new THREE.Vector3(),trackedQuat=new THREE.Quaternion(),trackedScale=new THREE.Vector3(1,1,1);
  const cameraForward=new THREE.Vector3(0,0,1);
- function announce(message){if(message!==lastStatus){lastStatus=message;status(message)}}
+ function announce(message){
+  if(diagnostics&&message.startsWith('TRACKING CUBE')){
+   message+=' · '+targetHz+' updates/s · '+displayFPS+' fps';
+  }
+  if(message!==lastStatus){lastStatus=message;status(message)}
+ }
  function prepareCube(){
   const cube=new THREE.Group();
   rooms=FACE_NORMALS.map((_,i)=>{
@@ -280,7 +287,10 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
     anchors.push(anchor);
     anchor.onTargetFound=()=>{measurementVersion++};
     anchor.onTargetLost=()=>{measurementVersion++};
-    anchor.onTargetUpdate=()=>{measurementVersion++};
+    anchor.onTargetUpdate=()=>{
+     measurementVersion++;
+     if(anchor.visible)sampleUpdates++;
+    };
    }
    poseInitialized=false;currentIndex=-1;activeFace=-1;
    announce('REQUESTING REAR CAMERA');
@@ -288,6 +298,15 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    running=true;
    announce('LOOK FOR THE CUBE · TURN IT SLOWLY');
    renderer.setAnimationLoop(()=>{
+    if(diagnostics){
+     displayFrames++;
+     const elapsed=performance.now()-meterStart;
+     if(elapsed>=1000){
+      displayFPS=Math.round(displayFrames*1000/elapsed);
+      targetHz=Math.round(sampleUpdates*1000/elapsed);
+      displayFrames=sampleUpdates=0;meterStart=performance.now();
+     }
+    }
     updateTrackedPose();
     const i=activeFace;
     if(i>=0&&rooms){
@@ -325,7 +344,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    if(obj.material)(Array.isArray(obj.material)?obj.material:[obj.material]).forEach(m=>m.dispose?.());
   }))}catch{}
   rooms=null;wrapper=null;poseRoot=null;anchors=[];
-  poseInitialized=false;currentIndex=-1;lastStatus='';measurementVersion=0;lastProcessedVersion=-1;
+  poseInitialized=false;currentIndex=-1;lastStatus='';measurementVersion=0;lastProcessedVersion=-1;displayFrames=sampleUpdates=0;
   container.replaceChildren();
   if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null}
   status('CAMERA CLOSED');
