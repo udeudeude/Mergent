@@ -88,8 +88,8 @@ function initialize(){
  const eye=new THREE.Vector3();
  renderer.setAnimationLoop(()=>{
   const now=performance.now()/1000,dt=lastTime?Math.min(.05,now-lastTime):.016;lastTime=now;
-  if(arActive)return;
   motion.t+=dt;motion.shock*=.93;
+  if(arActive)return;
   motion.x+=(motion.tx-motion.x)*.1;motion.y+=(motion.ty-motion.y)*.1;
   stand.rotation.set(motion.x,motion.y,0,'XYZ');
   stand.updateMatrixWorld(true);
@@ -179,8 +179,8 @@ async function getTracker(){
  const mod=await import('./ar.js?v=4');
  tracker=mod.createTracker({
   container:$('arView'),
-  onStatus:msg=>{if(arActive)$('status').textContent=msg;else $('setupStatus').textContent=msg},
-  onFace:i=>{selected=i;updateUI();$('status').textContent='TRACKING PHYSICAL FACE '+(i+1);ping(i,.04)},
+  onStatus:msg=>{if(msg.startsWith('CUBE LOST')||msg.startsWith('LOOK FOR'))document.body.classList.remove('cube-found');if(arActive)$('status').textContent=msg;else $('setupStatus').textContent=msg},
+  onFace:i=>{document.body.classList.add('cube-found');selected=i;updateUI();$('status').textContent='TRACKING PHYSICAL FACE '+(i+1);ping(i,.04)},
   getBreach:()=>breached,
   getWeird:()=>weird,
   getTime:()=>motion.t
@@ -211,7 +211,7 @@ async function enterAR(){
   console.error('Physical cube camera failed',e);
   notify('Camera setup failed: '+(e?.message||e));
   arActive=false;
-  document.body.classList.remove('tracking-mode');
+  document.body.classList.remove('tracking-mode','cube-found');
  }finally{
   arBusy=false;
   if(!arActive){$('scanCube').textContent='▣ SCAN MERGE CUBE';$('scanCube').setAttribute('aria-pressed','false')}
@@ -222,7 +222,7 @@ async function stopTracking(){
  arBusy=true;
  try{await tracker?.stop()}catch(e){console.warn(e)}
  arActive=false;
- document.body.classList.remove('tracking-mode');
+ document.body.classList.remove('tracking-mode','cube-found');
  $('scanCube').textContent='▣ SCAN MERGE CUBE';
  $('scanCube').setAttribute('aria-pressed','false');
  $('status').textContent='CGI PREVIEW';
