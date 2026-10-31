@@ -113,7 +113,7 @@ function postcard(){
 }
 async function getTracker(){
  if(tracker)return tracker;
- const {createTracker}=await import('./ar.js?v=7');
+ const {createTracker}=await import('./ar.js?v=8');
  tracker=createTracker({
   container:$('arView'),
   onStatus:msg=>{
