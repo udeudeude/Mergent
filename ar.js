@@ -45,12 +45,12 @@ async function pageToTargets(file,onProgress){
  const pdfjs=await import(PDFJS);
  pdfjs.GlobalWorkerOptions.workerSrc=PDF_WORKER;
  const source=file?{data:new Uint8Array(await file.arrayBuffer())}:{url:PDF_URL};
- let document;
- try{document=await pdfjs.getDocument(source).promise}
+ let pdfDocument;
+ try{pdfDocument=await pdfjs.getDocument(source).promise}
  catch(e){throw new Error('Official PDF could not be downloaded. Save it to Files, then use IMPORT PDF FROM FILES. '+(e?.message||e))}
  try{
-  if(document.numPages<1)throw new Error('PDF has no pages');
-  const page=await document.getPage(1);
+  if(pdfDocument.numPages<1)throw new Error('PDF has no pages');
+  const page=await pdfDocument.getPage(1);
   const viewport=page.getViewport({scale:2.6});
   const raster=document.createElement('canvas');
   raster.width=Math.ceil(viewport.width);
@@ -77,7 +77,7 @@ async function pageToTargets(file,onProgress){
   }
   raster.width=raster.height=0;
   return targets;
- }finally{await document.destroy()}
+ }finally{await pdfDocument.destroy()}
 }
 export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach=()=>false,getWeird=()=>.5,getTime=()=>0}){
  let compiled=null,engine=null,objectURL=null,activeFace=-1,rooms=null,wrapper=null,running=false;
