@@ -67,3 +67,10 @@ progress{display:block;width:100%;height:12px;accent-color:var(--accent)}
 @media(max-width:390px){.topbuttons{gap:4px}.tool{min-height:34px;padding:7px 9px}.topbuttons .tool span{display:none}.range-row{gap:7px;font-size:8px}.control-actions{gap:5px}.control-actions .button{font-size:8px}}
 @media(max-height:690px){.launch{padding:17px;margin-bottom:0}.launch h2{font-size:34px}.control-panel{padding:8px 12px}.face-row{margin:5px 0}.face-indicator{height:24px}.instructions{display:none}#specimenDescription{display:none}.range-row{margin-top:8px;padding-top:7px}.control-actions .button{min-height:35px}}
 @media(prefers-reduced-motion:reduce){.toast{transition:none}}
+
+/* Camera-first performance path: do not continuously blur a live camera/
+   WebGL composite through a second translucent HUD layer in mobile Safari. */
+body.camera-active .grain{display:none}
+body.camera-active .control-panel{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(10,18,29,.92)}
+body.camera-active .readout{background:rgba(11,22,34,.92)}
+body.camera-active #arView{will-change:transform}
