@@ -7,7 +7,7 @@
 <meta name="description" content="Turn a real MERGE Cube into a CGI cabinet of six impossible interiors. An augmented-reality experiment for the physical cube.">
 <title>Mergent · Six impossible interiors</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230d1520'/%3E%3Cpath d='m50 8 36 22v42L50 92 14 72V30Zm0 0v43m36-21L50 51 14 30M50 51v41' stroke='%23f3b98c' fill='none' stroke-width='5'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="./styles.css?v=5">
+<link rel="stylesheet" href="./styles.css?v=6">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.147.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -32,7 +32,7 @@
     <h2>Six worlds, one cube.</h2>
     <p>Place a physical MERGE Cube in front of your iPhone. Mergent recognizes its printed faces and replaces their appearance with impossible, hollow CGI interiors.</p>
     <button id="startCamera" class="button primary big">▣ START CUBE CAMERA</button>
-    <p class="small">First use: Mergent learns the six standard faces from MERGE's printable PDF. No photographs or separate CGI-only mode.</p>
+    <p class="small">Mergent prepares the six standard face patterns automatically. You only need to grant camera permission when prompted.</p>
   </section>
   <section id="controls" class="control-panel" hidden aria-label="Cube controls">
     <div class="reading">
@@ -58,29 +58,29 @@
   <div class="dialog-head"><div><div class="eyebrow">NOTES ON AN IMPOSSIBLE OBJECT</div><h2>The real cube is the controller.</h2></div><button class="close" data-close="help" aria-label="Close">×</button></div>
   <p>This app is only for the <strong>physical MERGE Cube</strong>. Point the iPhone's rear camera at one of its six marked faces. When a face is recognized, Mergent overlays a CGI cube whose visible face appears hollow, containing one of six procedural specimens.</p>
   <p>Turn the real cube to change chambers. <strong>Disturb</strong> agitates the current specimen. <strong>Breach</strong> introduces a visitor from a neighboring chamber. Adjust <strong>Improbability</strong> to change their behavior, or make a <strong>Postcard</strong> of the camera scene.</p>
-  <p>First-time setup compiles six tracking patterns from MERGE's official PDF on your device. Tracking is experimental and face-by-face, rather than MERGE's proprietary full-cube tracker. Glare, fast movement, and obscured markings may interrupt it.</p>
+  <p>Mergent automatically prepares its six face patterns and combines measurements from adjacent visible faces into one smoothed cube pose. This approximates the multi-face geometry used by native apps, but the Safari tracking implementation remains experimental.</p>
   <button id="recalibrate" class="button">REBUILD FACE TRACKING</button>
   <button class="button primary" data-close="help">RETURN TO CAMERA</button>
 </dialog>
 <dialog id="setupDialog">
-  <div class="dialog-head"><div><div class="eyebrow">ONE-TIME CUBE CALIBRATION</div><h2>Teach it the six faces.</h2></div><button class="close" data-close="setupDialog" aria-label="Close">×</button></div>
-  <p>Use <a href="https://res.cloudinary.com/apsphysics/image/upload/merge-paper-cube_mizj2k.pdf" target="_blank" rel="noopener noreferrer">MERGE's official printable PDF</a> to learn the six standard face patterns. The app builds tracking data locally. You do <strong>not</strong> need to photograph your cube.</p>
+  <div class="dialog-head"><div><div class="eyebrow">ONLY IF AUTOMATIC SETUP FAILS</div><h2>Recover the six faces.</h2></div><button class="close" data-close="setupDialog" aria-label="Close">×</button></div>
+  <p>Mergent normally handles the official PDF automatically. If the remote PDF cannot be retrieved, save <a href="https://res.cloudinary.com/apsphysics/image/upload/merge-paper-cube_mizj2k.pdf" target="_blank" rel="noopener noreferrer">the official MERGE PDF</a> and import it from Files. No photography is needed.</p>
   <div class="setup-buttons">
-    <button id="setupPdf" class="button primary">USE OFFICIAL MERGE PDF</button>
+    <button id="setupPdf" class="button primary">RETRY AUTOMATIC SETUP</button>
     <button id="setupFile" class="button">IMPORT DOWNLOADED PDF</button>
     <button id="setupMind" class="button">IMPORT SIX-FACE .MIND FILE</button>
   </div>
   <input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden>
   <input id="mindFile" type="file" accept=".mind,application/octet-stream" hidden>
   <progress id="setupProgress" max="100" value="0"></progress>
-  <p id="setupStatus" class="setup-status" role="status" aria-live="polite">Select the official PDF to begin.</p>
-  <p class="small">If automatic PDF loading fails, save the linked PDF to Files and import it instead. The extracted target data is cached in this browser.</p>
+  <p id="setupStatus" class="setup-status" role="status" aria-live="polite">Automatic reference preparation is attempted first.</p>
+  <p class="small">The fallback appears only when automatic retrieval fails. Extracted tracking data is cached in this browser.</p>
 </dialog>
 <dialog id="postcardDialog">
   <div class="dialog-head"><div><div class="eyebrow">COLLECTED IMPOSSIBILITY</div><h2>The evidence.</h2></div><button class="close" data-close="postcardDialog" aria-label="Close">×</button></div>
   <img id="postcardPreview" alt="Captured physical-cube encounter with CGI interior">
   <div class="card-actions"><a class="button primary" id="saveImage" download="mergent-postcard.png">SAVE PNG</a><button class="button" id="shareImage">SHARE</button></div>
 </dialog>
-<script type="module" src="./app.js?v=5"></script>
+<script type="module" src="./app.js?v=6"></script>
 </body>
 </html>
