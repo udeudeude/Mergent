@@ -130,6 +130,8 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
  }
  let poseRoot=null,anchors=[],currentIndex=-1,poseInitialized=false;
  let lastDetection=0,lastStatus='';
+ let measurementVersion=0,lastProcessedVersion=-1;
+ let newestMeasurementAt=0,previousMeasurementAt=0;
  const tempPos=new THREE.Vector3(),tempQuat=new THREE.Quaternion(),tempScale=new THREE.Vector3();
  const trackedPos=new THREE.Vector3(),trackedQuat=new THREE.Quaternion(),trackedScale=new THREE.Vector3(1,1,1);
  const cameraForward=new THREE.Vector3(0,0,1);
@@ -170,6 +172,18 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   return best;
  }
  function updateTrackedPose(){
+  // MindAR updates target matrices asynchronously, often far less often
+  // than requestAnimationFrame. Don't add another low-pass filter for each
+  // duplicate frame: that made the object noticeably lag behind the camera.
+  const now=performance.now();
+  if(measurementVersion===lastProcessedVersion){
+   if(poseInitialized&&now-lastDetection>220){
+    poseRoot.visible=false;activeFace=-1;currentIndex=-1;
+    announce('CUBE LOST · SHOW A MARKED FACE');
+   }
+   return;
+  }
+  lastProcessedVersion=measurementVersion;
   const candidates=[];
   for(let i=0;i<anchors.length;i++){
    const anchor=anchors[i];
@@ -184,7 +198,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    candidates.push({i,p,q,sc,facing});
   }
   if(!candidates.length){
-   if(poseInitialized&&performance.now()-lastDetection<360){
+   if(poseInitialized&&now-lastDetection<190){
     poseRoot.visible=true;
     return;
    }
@@ -192,7 +206,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    announce('CUBE LOST · SHOW A MARKED FACE');
    return;
   }
-  lastDetection=performance.now();
+  lastDetection=now;
   // Prefer the most frontal target, but accept adjacent faces too. The
   // relative geometry of the cube keeps the pose in a common frame.
   candidates.sort((a,b)=>b.facing-a.facing);
@@ -212,13 +226,15 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    trackedPos.copy(tempPos);trackedQuat.copy(tempQuat);trackedScale.copy(tempScale);
    poseInitialized=true;
   }else{
-   // Smoothing avoids abrupt target-to-target jumps while preserving
-   // responsive hand movements. MindAR also filters target poses.
-   const proximity=trackedPos.distanceTo(tempPos)/Math.max(.01,tempScale.x);
-   const speed=proximity>.16?.44:.28;
-   trackedPos.lerp(tempPos,speed);
-   trackedQuat.slerp(tempQuat,speed);
-   trackedScale.lerp(tempScale,speed);
+   // MindAR already applies a One Euro motion filter. This lightweight,
+   // sample-driven second stage suppresses tiny jitters without repeatedly
+   // chasing the same old measurement. Large/fast changes nearly bypass it.
+   const movement=trackedPos.distanceTo(tempPos)/Math.max(.01,tempScale.x);
+   const turn=trackedQuat.angleTo(tempQuat);
+   const alpha=(movement>.035||turn>.045)?.93:.78;
+   trackedPos.lerp(tempPos,alpha);
+   trackedQuat.slerp(tempQuat,alpha);
+   trackedScale.lerp(tempScale,alpha);
   }
   poseRoot.matrix.compose(trackedPos,trackedQuat,trackedScale);
   poseRoot.matrixWorldNeedsUpdate=true;
@@ -239,13 +255,18 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   const ar=new MindARThree({
    container,imageTargetSrc:objectURL,
    uiLoading:false,uiScanning:false,uiError:false,
-   maxTrack:2,filterMinCF:.001,filterBeta:700,
-   warmupTolerance:2,missTolerance:4
+   // Performance-first: with maxTrack=2 MindAR continually runs an
+   // expensive full detector while one face is already being tracked.
+   // One tracked face still determines the rigid cube's six-face pose.
+   maxTrack:1,filterMinCF:.008,filterBeta:1200,
+   warmupTolerance:1,missTolerance:2
   });
   engine=ar;
   try{
    const {renderer,scene,camera}=ar;
-   renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+   // Reduce GPU fill-rate on high-DPI iPhones. Display resolution is
+   // independent from MindAR's camera detector resolution.
+   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.4));
    scene.add(new THREE.HemisphereLight(0xe6f2ff,0x29394e,1.6));
    const key=new THREE.DirectionalLight(0xffd2a5,2.7);
    key.position.set(1,2,3);scene.add(key);
@@ -253,11 +274,13 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    fill.position.set(-2,-1,1);scene.add(fill);
    prepareCube();scene.add(poseRoot);
    anchors=[];
+   measurementVersion=0;lastProcessedVersion=-1;
    for(let i=0;i<6;i++){
     const anchor=ar.addAnchor(i);
     anchors.push(anchor);
-    anchor.onTargetFound=()=>{lastDetection=performance.now()};
-    anchor.onTargetLost=()=>{};
+    anchor.onTargetFound=()=>{measurementVersion++};
+    anchor.onTargetLost=()=>{measurementVersion++};
+    anchor.onTargetUpdate=()=>{measurementVersion++};
    }
    poseInitialized=false;currentIndex=-1;activeFace=-1;
    announce('REQUESTING REAR CAMERA');
@@ -302,7 +325,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    if(obj.material)(Array.isArray(obj.material)?obj.material:[obj.material]).forEach(m=>m.dispose?.());
   }))}catch{}
   rooms=null;wrapper=null;poseRoot=null;anchors=[];
-  poseInitialized=false;currentIndex=-1;lastStatus='';
+  poseInitialized=false;currentIndex=-1;lastStatus='';measurementVersion=0;lastProcessedVersion=-1;
   container.replaceChildren();
   if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null}
   status('CAMERA CLOSED');
