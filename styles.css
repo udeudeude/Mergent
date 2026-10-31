@@ -33,3 +33,23 @@ dialog{color:var(--ink);background:#131d2a;border:1px solid rgba(246,180,140,.35
 @media(max-width:430px){.toolbar{gap:4px}.tool{padding:8px;min-height:34px;font-size:10px}.tool span{display:none}.kicker{font-size:8px}.hud{gap:8px}.actions{gap:6px}.button{padding:0 8px;font-size:8.5px}#specimenDescription{font-size:11.5px}.section-head{font-size:8px}.face-caption{margin-top:7px}.hint{font-size:7.5px}}
 @media(max-height:680px){#specimenName{font-size:30px}#specimenDescription{display:none}.bottom{gap:7px}.cabinet{padding:9px}.faces{margin-top:6px}.hint{display:none}.button{min-height:34px}.face{aspect-ratio:1.6}.slider-line{padding-top:7px;margin-top:7px}}
 @media(prefers-reduced-motion:reduce){.toast{transition:none}}
+
+/* Physical MERGE Cube tracking camera. The video is intentionally below
+   MindAR's transparent WebGL layer, but above the preview background. */
+#arView{position:absolute;inset:0;display:none;z-index:2;overflow:hidden;isolation:isolate;pointer-events:none}
+#arView video{z-index:0!important}
+#arView canvas{z-index:2!important}
+#arView>div{pointer-events:none}
+body.tracking-mode #arView{display:block}
+body.tracking-mode #view{display:none}
+#arReticle{display:none;position:absolute;z-index:3;top:43%;left:50%;transform:translate(-50%,-50%);width:min(64vw,260px);color:#fff0db;text-align:center;font:10px 'DM Mono',monospace;letter-spacing:.1em;line-height:1.8;text-shadow:0 2px 9px #000}
+body.tracking-mode:not(.cube-found) #arReticle{display:block}
+#arReticle .reticleBox{aspect-ratio:1;border:1px dashed #f6b48c88;border-radius:9px;margin-bottom:13px;box-shadow:0 0 30px #080d1555}
+#arReticle .reticleBox:before{content:'';position:absolute;inset:23px 23px auto;height:1px;border-top:1px solid #f6b48c55}
+.setup-buttons{display:grid;grid-template-columns:1fr;gap:9px;margin:16px 0}
+.setup-buttons .button{min-height:46px;justify-content:center;width:100%}
+#setupProgress{width:100%;height:12px;accent-color:var(--accent);display:block;margin:10px 0}
+.setup-status{color:#e9d4ba!important;min-height:30px}
+.fineprint{font-size:11px!important;color:#8b9aaa!important}
+dialog a{color:var(--accent)}
+@media(max-width:430px){body.tracking-mode .hint{display:block;font-size:7px}}
