@@ -79,7 +79,7 @@ async function pageToTargets(file,onProgress){
   return targets;
  }finally{await pdfDocument.destroy()}
 }
-export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach=()=>false,getWeird=()=>.5,getTime=()=>0}){
+export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach=()=>false,getWeird=()=>.5,getTime=()=>0,getShock=()=>0}){
  let compiled=null,engine=null,objectURL=null,activeFace=-1,rooms=null,wrapper=null,running=false;
  const status=msg=>onStatus(msg);
  async function hasTargets(){
@@ -171,16 +171,16 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    status('REQUESTING REAR CAMERA');
    await ar.start();
    running=true;
-   status('LOOK FOR THE CUBE · TURN IT SLOWLY');
+   if(activeFace<0)status('LOOK FOR THE CUBE · TURN IT SLOWLY');
    renderer.setAnimationLoop(()=>{
     const i=activeFace;
     if(i>=0&&rooms){
      const t=getTime(),w=getWeird(),breach=getBreach();
      const r=rooms[i];
-     r.specimen.userData.tick(t,w,0);
+     r.specimen.userData.tick(t,w,getShock());
      r.echoHolder.visible=breach;r.recursing.visible=breach;
      if(breach){
-      r.echo.userData.tick(t,w,0);
+      r.echo.userData.tick(t,w,getShock());
       r.echoHolder.rotation.z=t*.45;
       r.recursing.rotation.x=t*.30;
       r.recursing.rotation.y=t*.39;
@@ -214,7 +214,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   rooms=null;wrapper=null;
   container.replaceChildren();
   if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null}
-  status('VIRTUAL PREVIEW');
+  status('CAMERA CLOSED');
  }
  function snapshot(){
   if(!engine?.video||!running)return null;
