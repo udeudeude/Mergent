@@ -139,7 +139,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
  const cameraForward=new THREE.Vector3(0,0,1);
  function announce(message){
   if(diagnostics&&message.startsWith('TRACKING CUBE')){
-   message+=' · '+targetHz+' updates/s · '+displayFPS+' fps';
+   message+=' · '+targetHz+' updates/s · '+displayFPS+' fps · '+(engine?.video?.videoWidth||'?')+'×'+(engine?.video?.videoHeight||'?')+' cam';
   }
   if(message!==lastStatus){lastStatus=message;status(message)}
  }
@@ -184,7 +184,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   // duplicate frame: that made the object noticeably lag behind the camera.
   const now=performance.now();
   if(measurementVersion===lastProcessedVersion){
-   if(poseInitialized&&now-lastDetection>220){
+   if(poseInitialized&&now-lastDetection>360){
     poseRoot.visible=false;activeFace=-1;currentIndex=-1;
     announce('CUBE LOST · SHOW A MARKED FACE');
    }
@@ -205,7 +205,7 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    candidates.push({i,p,q,sc,facing});
   }
   if(!candidates.length){
-   if(poseInitialized&&now-lastDetection<190){
+   if(poseInitialized&&now-lastDetection<320){
     poseRoot.visible=true;
     return;
    }
@@ -254,6 +254,49 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
   activeFace=index;
   announce('TRACKING CUBE · '+candidates.length+' FACE'+(candidates.length===1?'':'S')+' VISIBLE');
  }
+
+ // MindAR 1.2.5 otherwise requests an unconstrained camera stream. Some
+ // iPhones deliver 720p or 1080p, which TensorFlow processes in full on
+ // every tracking pass. Asking for 640x480 keeps the same optics and the
+ // same marker poses but substantially reduces pixels processed.
+ // ?camera=hd allows a comparison on the same device.
+ function configureCameraResolution(ar){
+  if(typeof ar._startVideo!=='function')return;
+  const hd=new URLSearchParams(location.search).get('camera')==='hd';
+  const w=hd?1280:640,h=hd?720:480;
+  ar._startVideo=async function(){
+   const video=document.createElement('video');
+   video.setAttribute('autoplay','');
+   video.setAttribute('muted','');
+   video.setAttribute('playsinline','');
+   video.muted=true;
+   video.style.position='absolute';
+   video.style.left='0px';video.style.top='0px';video.style.zIndex='-2';
+   ar.video=video;
+   container.appendChild(video);
+   try{
+    const stream=await navigator.mediaDevices.getUserMedia({
+     audio:false,
+     video:{facingMode:{ideal:'environment'},width:{ideal:w},height:{ideal:h},frameRate:{ideal:30,max:30}}
+    });
+    const metadata=new Promise((resolve,reject)=>{
+     if(video.readyState>=1&&video.videoWidth){resolve();return}
+     video.addEventListener('loadedmetadata',resolve,{once:true});
+     video.addEventListener('error',()=>reject(new Error('Camera metadata unavailable')),{once:true});
+    });
+    video.srcObject=stream;
+    await metadata;
+    video.setAttribute('width',video.videoWidth);
+    video.setAttribute('height',video.videoHeight);
+    await video.play().catch(e=>console.warn('Camera autoplay',e));
+   }catch(e){
+    video.srcObject?.getTracks().forEach(t=>t.stop());
+    video.remove();
+    throw e;
+   }
+  };
+ }
+
  async function start(){
   if(running)return;
   if(!await hasTargets())throw new Error('Tracking data has not finished preparing');
@@ -269,11 +312,12 @@ export function createTracker({container,onStatus=()=>{},onFace=()=>{},getBreach
    warmupTolerance:1,missTolerance:2
   });
   engine=ar;
+  configureCameraResolution(ar);
   try{
    const {renderer,scene,camera}=ar;
    // Reduce GPU fill-rate on high-DPI iPhones. Display resolution is
    // independent from MindAR's camera detector resolution.
-   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.4));
+   renderer.setPixelRatio(1);
    scene.add(new THREE.HemisphereLight(0xe6f2ff,0x29394e,1.6));
    const key=new THREE.DirectionalLight(0xffd2a5,2.7);
    key.position.set(1,2,3);scene.add(key);
